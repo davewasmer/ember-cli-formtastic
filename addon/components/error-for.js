@@ -1,4 +1,5 @@
 import Ember from 'ember';
+import DS from 'ember-data';
 
 var computed = Ember.computed;
 var on = Ember.on;
@@ -65,9 +66,15 @@ export default Ember.Component.extend({
    * property. If your form's model doesn't have an errors property, you can
    * manually specify the array of errors this block should check.
    *
-   * @type {Array}
+   * @type {DS.Errors}
    */
-  errors: computed(function() { return Ember.A(); }),
+  errors: computed('form.errors.[]', function() {
+    if (this.get('field')) {
+      return this.get('form.errors');
+    } else {
+      return new DS.Errors();
+    }
+  }),
 
 
   classNames: 'formtastic-error',
@@ -94,16 +101,6 @@ export default Ember.Component.extend({
     this.get('form.errorHandlers').removeObject(this);
   }),
 
-  // If the component was rendered with the 'field' option, then listen to the
-  // form model's errors for any that appear against this field.
-  observeErrors: on('init', function() {
-    if (this.get('field')) {
-      Ember.addObserver('form.errors.' + this.get('field') + '.[]', this, () => {
-        this.set('errors', this.get('form.errors.' + this.get('field')));
-      });
-    }
-  }),
-
   // Of all the errors against this particular field, which ones should this
   // component handle? Three scenarios:
   //
@@ -128,18 +125,17 @@ export default Ember.Component.extend({
   // displaying?
   visibleErrors: computed('multiple', 'errors.[]', function() {
     var errors = this.get('matchingErrors');
+    if (errors.get('length') === 0) {
+      return [];
+    }
     return this.get('multiple') ? errors : Ember.A([ errors.get('firstObject') ]);
   }),
 
   // Take a `matches` regex pattern and an error and return if they match
   matchesError(error) {
     var pattern = this.get('pattern');
-    if (typeof error === 'string') {
-      return error.match(pattern);
-    } else {
-      var testValue =  error.type || error.message || error.description;
-      return testValue.match(pattern);
-    }
+    var field = this.get('field');
+    return error.attribute === field && error.message.match(pattern);
   }
 
 });

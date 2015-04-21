@@ -27,7 +27,7 @@ export default Ember.Component.extend({
   attributeBindings: [ 'disabled' ],
 
   classNames: 'formtastic-submit',
-
+  
   tagName: 'button'
 
 });

@@ -1,9 +1,8 @@
 import Ember from 'ember';
-import TextField from "ember-views/views/text_field";
 
 var computed = Ember.computed;
 
-export default TextField.extend({
+export default Ember.TextField.extend({
 
   // Options
 
@@ -25,23 +24,19 @@ export default TextField.extend({
   classNameBindings: 'field',
 
   _value: "",
-  value: computed({
-    get: function() {
-      if (this.get('field')) {
-        Ember.assert('You must supply the "form" to input-for when you specify the "field". To bind a value directly, use "value" instead.', this.get('form'));
-        return this.get('form.model.' + this.get('field'));
-      } else {
-        return this.get('_value');
-      }
-    },
-    set: function(key, value) {
-      if (this.get('field')) {
-        Ember.assert('You must supply the "form" to input-for when you specify the "field". To bind a value directly, use "value" instead.', this.get('form'));
-        return this.set('form.model.' + this.get('field'), value);
-      } else {
-        return this.set('_value', value);
-      }
+  value: computed(function(key, value) {
+    var path;
+    if (this.get('field')) {
+      Ember.assert('You must supply the "form" to input-for when you specify the "field". To bind a value directly, use "value" instead.', this.get('form'));
+      path = 'form.model.' + this.get('field');
+    } else {
+      path = '_value';
     }
+
+    if (arguments.length > 1) {
+      this.set(path, value);
+    }
+    return this.get(path, value);
   })
 
 });
