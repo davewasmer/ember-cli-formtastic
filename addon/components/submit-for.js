@@ -21,13 +21,14 @@ export default Ember.Component.extend({
    *
    * @type {Boolean}
    */
-  disabled: computed.alias('form.model.isSaving'),
+  disabled: computed.or('form.model.isSaving', 'form.model.isInvalid'),
 
 
+  classNameBindings: [ 'disabled' ],
   attributeBindings: [ 'disabled' ],
 
-  classNames: 'formtastic-submit',
-  
+  classNames: 'submit-btn',
+
   tagName: 'button'
 
 });

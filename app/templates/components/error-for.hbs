@@ -1,5 +1,9 @@
-{{#if isVisible}}
-  {{#each visibleErrors as |error|}}
-    {{yield error}}
-  {{/each}}
+{{#if isActive}}
+  <div class='error-for'>
+    {{#if template}}
+      {{yield error}}
+    {{else}}
+      {{errorMessage}}
+    {{/if}}
+  </div>
 {{/if}}

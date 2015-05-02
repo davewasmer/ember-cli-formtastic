@@ -1,10 +1,19 @@
 import Ember from 'ember';
-import DS from 'ember-data';
+import { arrayMemberObserver } from 'ember-array-macros';
 
-var computed = Ember.computed;
-var on = Ember.on;
+const computed = Ember.computed;
+const get = Ember.get;
+const set = Ember.set;
+const on = Ember.on;
+const contains = function(arrayKey, valueKey) {
+  return computed(arrayKey + '.[]', valueKey, function() {
+    return this.get(arrayKey).contains(this.get(valueKey));
+  });
+};
 
 export default Ember.Component.extend({
+
+  tagName: '',
 
   // Options
 
@@ -21,14 +30,7 @@ export default Ember.Component.extend({
    *
    * @type {String}
    */
-  field: null,
-
-  /**
-   * Display multiple errors at once, or only just the first one in the stack.
-   *
-   * @type {Boolean}
-   */
-  multiple: false,
+  field: 'base',
 
   /**
    * Errors belong to a particular field, and come in different types. Using the
@@ -36,7 +38,7 @@ export default Ember.Component.extend({
    * specified `field` has a certain kind of error.
    *
    * `matches` should be a RegExp (or String that will be converted to a RegExp)
-   * that will be checked against each error to find a match.
+   * that will be checked against each error to find a matches.
    *
    * If you don't specify a `matches` option, the component assumes "catch-all"
    * mode. Any errors for the supplied field that are *not* picked up by other
@@ -44,21 +46,21 @@ export default Ember.Component.extend({
    * your {{error-for}} instances must be passed in the form option for this to
    * work.
    *
-   * @type {RegExp|String}
+   * @type {RegExp|Boolean}
    */
-  matches: null,
-
-  /**
-   * Sometimes you only want to display an error message when some other
-   * condition is true. For example, you might want to display a different error
-   * message if the user makes the same mistake three or more times in a row.
-   *
-   * `when` lets you add an additional condition more elegantly than wrapping
-   * the {{error-for}} block in an {{if}} helper.
-   *
-   * @type {Boolean}
-   */
-  when: true,
+  _pattern: false,
+  matches: computed({
+    get() {
+      return this.get('_pattern');
+    },
+    set(key, value) {
+      if (Ember.typeOf(value) === 'string') {
+        value = new RegExp(value);
+      }
+      this.set('_pattern', value);
+      return value;
+    }
+  }),
 
   /**
    * This option is mutually exclusive with the `field` option. When `field` is
@@ -66,76 +68,146 @@ export default Ember.Component.extend({
    * property. If your form's model doesn't have an errors property, you can
    * manually specify the array of errors this block should check.
    *
-   * @type {DS.Errors}
+   * NOTE this only works by luck at the moment. DS.Errors (server side errors)
+   * is enumerable, and works great. EmberValidations error objects, meanwhile,
+   * are not. But EmberValidations resets the entire object, so this still
+   * works.
+   *
+   * @type {Error[]}
    */
   errors: computed('form.errors.[]', function() {
-    if (this.get('field')) {
-      return this.get('form.errors');
+    return this.get('form.errors').errorsFor(this.get('field'));
+  }),
+
+  /**
+   * Errors that matches the `matches` pattern
+   *
+   * @type {Error[]}
+   */
+  matchingErrors: computed.filter('errors', function (error) {
+    let message = this.buildErrorMessage(error);
+    if (this.get('matches')) {
+      return !get(error, 'isCaptured') && message.match(this.get('matches'));
     } else {
-      return new DS.Errors();
+      return !get(error, 'isCaptured');
     }
   }),
 
+  /**
+   * The active error
+   *
+   * @type {String}
+   */
+  error: computed.alias('matchingErrors.firstObject'),
 
-  classNames: 'formtastic-error',
-
-  // Take the 'matches' argument and convert to a RegExp if not already one.
-  pattern: computed('matches', function() {
-    if (typeof this.get('matches') === 'string') {
-      return new RegExp(this.get('matches'));
+  /**
+   * The active error message
+   *
+   * @type {String}
+   */
+  errorMessage: computed('error', function() {
+    let error = this.get('error');
+    if (error) {
+      return this.buildErrorMessage(error);
     } else {
-      return this.get('matches');
+      return null;
     }
   }),
 
-  // Are there any actual errors to render?
-  isVisible: computed.gt('visibleErrors.length', 0),
+  /**
+   * When items are added to our matching errors array, mark them as captured
+   * so we can know which ones *aren't* captured and should be displayed in
+   * catch-all handlers
+   */
+  trackCaptures: arrayMemberObserver('matchingErrors', {
+    added(error) {
+      set(error, 'isCaptured', true);
+    },
+    removed(error) {
+      set(error, 'isCaptured', false);
+    }
+  }),
 
-  // Let the parent know this error-for component exists. Used to help determine
-  // what errors are *not* being handled so they can be passed off to the
-  // catch-all handlers (see the matchingErrors property below).
+  /**
+   * Takes an error object and builds a string to check against the `matches`
+   * pattern. Extracted out to make it easily overridable.
+   */
+  buildErrorMessage(error) {
+    if (error.message && error.message.type) {
+      return error.message.type + ': ' + error.message.message;
+    } else if (error.message) {
+      return error.message;
+    } else {
+      return error.toString();
+    }
+  },
+
+
+  // Visibility control
+  //
+  // {{error-for}} handlers can capture errors, but that doesn't mean they need
+  // to display them. That depends on the validation mode of the form and
+  // potentially whether the user has interacted with the field's associated
+  // input
+
+  isFirstError: computed('error', 'errors', function() {
+    return this.get('errors.firstObject') === this.get('error');
+  }),
+
+  /**
+   * Errors on the base attribute don't have a corresponding field for the user
+   * to interact with, so they generally follow the touched/live pattern at the
+   * form level rather than the individual input level.
+   *
+   * @type {Boolean}
+   */
+  isBase: computed.equal('field', 'base'),
+  formIsTouched: computed.notEmpty('form.touchedFields'),
+  formIsLive: computed.notEmpty('form.liveFields'),
+
+  /**
+   * When {{error-for}} tracks a specific field, it tracks whether that field
+   * has been touched / is live.
+   *
+   * @type {Boolean}
+   */
+  fieldIsTouched: contains('form.touchedFields', 'field'),
+  fieldIsLive: contains('form.liveFields', 'field'),
+
+  // Are there errors to render, and should those errors be displayed yet?
+  isActive: computed(
+    'form.validate',
+    'form.submitted',
+    'error',
+    'isFirstError',
+    'fieldIsLive',
+    'fieldIsTouched',
+    function() {
+      let mode = this.get('form.validate');
+
+      return this.get('error') && this.get('isFirstError') && (
+        (mode === 'touch' && this.get('fieldIsTouched')) ||
+        (mode === 'live' && this.get('fieldIsLive')) ||
+        (mode === 'submit' && this.get('form.submitted')) ||
+        (mode === 'continuous')
+      );
+    }
+  ),
+
+  /**
+   * Register and deregister with the parent form object.
+   */
   registerWithForm: on('didInsertElement', function() {
-    this.get('form.errorHandlers').pushObject(this);
+    let handlers = this.get('form.errorHandlers');
+    if (handlers) {
+      handlers.pushObject(this);
+    }
   }),
   deregisterWithForm: on('willDestroyElement', function() {
-    this.get('form.errorHandlers').removeObject(this);
-  }),
-
-  // Of all the errors against this particular field, which ones should this
-  // component handle? Three scenarios:
-  //
-  // 1. {{error-for field='email' matches='AlreadyTaken'}}
-  //    matches all errors on the 'email' field that match 'AlreadyTaken'
-  // 2. {{error-for field='email'}}
-  //    matches all errors on the 'email' field *that are not otherwise matched*
-  // 3. {{error-for errors=foo.bar}}
-  //    doesn't check for matches, just uses the supplied 'errors' array
-  //
-  matchingErrors: computed('errors.[]', function() {
-    if (this.get('pattern')) {
-      return this.get('errors').filter(this.matchesError.bind(this));
-    } else if (this.get('field')) {
-      return this.get('form').findUnmatchedErrorsFor(this.get('field'));
-    } else {
-      return this.get('errors');
+    let handlers = this.get('form.errorHandlers');
+    if (handlers) {
+      handlers.removeObject(this);
     }
   }),
-
-  // Of the errors that this component should handle, which ones are we actually
-  // displaying?
-  visibleErrors: computed('multiple', 'errors.[]', function() {
-    var errors = this.get('matchingErrors');
-    if (errors.get('length') === 0) {
-      return [];
-    }
-    return this.get('multiple') ? errors : Ember.A([ errors.get('firstObject') ]);
-  }),
-
-  // Take a `matches` regex pattern and an error and return if they match
-  matchesError(error) {
-    var pattern = this.get('pattern');
-    var field = this.get('field');
-    return error.attribute === field && error.message.match(pattern);
-  }
 
 });

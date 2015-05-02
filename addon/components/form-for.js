@@ -5,6 +5,8 @@ var computed = Ember.computed;
 
 export default Ember.Component.extend({
 
+  tagName: 'form',
+
   // Options
 
   /**
@@ -14,33 +16,65 @@ export default Ember.Component.extend({
    */
   model: computed(function() { return {}; }),
 
-  tagName: 'form',
-  classNames: 'formtastic-form',
+  /**
+   * Describes when validations are run. Accepts 4 values:
+   *
+   *   false - do not run validations
+   *   "submit" - run only when the form attempts to submit
+   *   "touch" - run after the user "touches" a field (i.e. after focusin then focusout)
+   *   "live" - as-you-type validations (i.e. after focusin)
+   *   "continuous" - validate continuously (i.e. on first render and changes)
+   *
+   * @type {String|Boolean}
+   */
+  validate: 'touch',
 
-  // Proxy the submit action
-  submit(e) {
-    e.preventDefault();
-    this.sendAction('action', this.get('model'));
-  },
-
-  // By default, errors are pulled from the model.errors property, but this
-  // could be overridden.
+  /**
+   * The error source to read from. By default, it reads from model.errors, but
+   * this can be overridden by passing in a different error source (custom
+   * error sources must be DS.Errors instances, or must implement the same
+   * interface).
+   *
+   * @type {DS.Errors}
+   */
   errors: computed('model.errors.[]', function() {
     return this.get('model.errors') || DS.Errors.create();
   }),
 
-  // Child {{error-for}} components will register themselves
-  errorHandlers: computed(function() { return Ember.A(); }),
+  /**
+   * Tracks whether this form has ever been submitted (used when validation mode
+   * is 'submit').
+   * 
+   * @type {Boolean}
+   */
+  submitted: false,
 
-  // Invoked by catch-all error-for components to find any errors that are not
-  // being handled. Iterates through all errors and the registered handlers,
-  // and filters out any errors that have a registered handler to match them.
-  findUnmatchedErrorsFor(field) {
-    return (this.get('errors.' + field) || []).filter((error) => {
-      return !this.get('errorHandlers').find(function(handler) {
-        return handler.matchesError(error);
+  /**
+   * Capture submit events on the form, and run validations (if needed) before
+   * firing the form action up.
+   */
+  submit(e) {
+    e.preventDefault();
+    this.set('submitted', true);
+    if (this.get('model').validate && this.get('validate')) {
+      this.get('model').validate()
+      .then((isValid) => {
+        if (isValid) {
+          this.sendAction('action', this.get('model'));
+        }
       });
-    });
-  }
+    } else {
+      this.sendAction('action', this.get('model'));
+    }
+  },
+
+  // Track which fields have been 'touched' by the user to know when to display
+  // validations triggered on touch. Touched = user started editing then stopped,
+  // usually via focusout.
+  touchedFields: computed(function() { return Ember.A(); }),
+
+  // Track which fields are 'live' to know when to display validations that are
+  // triggered on 'live'. Live = user started editing.
+  liveFields: computed(function() { return Ember.A(); })
 
 });
