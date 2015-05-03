@@ -4,7 +4,20 @@ var computed = Ember.computed;
 
 export default Ember.TextField.extend({
 
-  classNameBindings: [ 'field', 'isErrored:error' ],
+  classNames: 'input-for',
+  classNameBindings: [ 'dasherizedField', 'isErrored:error' ],
+  dasherizedField: computed('field', function() {
+    if (this.get('field')) {
+      return Ember.String.dasherize(this.get('field'));
+    }
+  }),
+
+  attributeBindings: [ 'placeholder' ],
+  placeholder: computed('field', function() {
+    if (this.get('field')) {
+      return Ember.String.capitalize(this.get('dasherizedField').replace('-', ' '));
+    }
+  }),
 
   // Options
 
