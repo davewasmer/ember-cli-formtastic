@@ -24,6 +24,20 @@ export default Ember.TextField.extend({
   field: null,
 
   /**
+   * Overridable alias to the model
+   *
+   * @type {DS.Model|Object}
+   */
+  model: computed.reads('form.model'),
+
+  /**
+   * Overridable alias to the errors for the model
+   *
+   * @type {DS.Errors}
+   */
+  errors: computed.reads('model.errors'),
+
+  /**
    * The value is either aliased to the form's model (if a `field` property is
    * supplied) or is stored directly (in the `_value`) property.
    *
@@ -34,7 +48,7 @@ export default Ember.TextField.extend({
     var path;
     if (this.get('field')) {
       Ember.assert('You must supply the "form" to input-for when you specify the "field". To bind a value directly, use "value" instead.', this.get('form'));
-      path = 'form.model.' + this.get('field');
+      path = 'model.' + this.get('field');
     } else {
       path = '_value';
     }
@@ -51,9 +65,9 @@ export default Ember.TextField.extend({
    *
    * @type {Boolean}
    */
-  hasErrors: computed('form.errors.[]', function() {
+  hasErrors: computed('errors.[]', function() {
     let errors = this.get('form.errors');
-    return errors && errors.errorsFor(this.get('field)')).length > 0;
+    return errors && errors.errorsFor(this.get('field')).length > 0;
   }),
 
   /**

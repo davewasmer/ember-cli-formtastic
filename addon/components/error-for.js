@@ -1,7 +1,9 @@
 import Ember from 'ember';
+import DS from 'ember-data';
 import { arrayMemberObserver } from 'ember-array-macros';
 
 const computed = Ember.computed;
+const assert = Ember.assert;
 const get = Ember.get;
 const set = Ember.set;
 const on = Ember.on;
@@ -68,15 +70,18 @@ export default Ember.Component.extend({
    * property. If your form's model doesn't have an errors property, you can
    * manually specify the array of errors this block should check.
    *
-   * NOTE this only works by luck at the moment. DS.Errors (server side errors)
-   * is enumerable, and works great. EmberValidations error objects, meanwhile,
-   * are not. But EmberValidations resets the entire object, so this still
-   * works.
+   * @type {Error[]}
+   */
+  errors: computed.reads('form.errors'),
+
+  /**
+   * Filtered list of all errors that apply to this field
    *
    * @type {Error[]}
    */
-  errors: computed('form.errors.[]', function() {
-    return this.get('form.errors').errorsFor(this.get('field'));
+  fieldErrors: computed('errors.[]', function() {
+    assert(`You must supply an instance of DS.Errors as the error source for this input (${this.get('field')}). If you didn't supplied a custom error source, check the parent form's error source.`, this.get('errors') instanceof DS.Errors);
+    return this.get('errors').errorsFor(this.get('field'));
   }),
 
   /**
@@ -84,7 +89,7 @@ export default Ember.Component.extend({
    *
    * @type {Error[]}
    */
-  matchingErrors: computed.filter('errors', function (error) {
+  matchingErrors: computed.filter('fieldErrors', function (error) {
     let message = this.buildErrorMessage(error);
     if (this.get('matches')) {
       return !get(error, 'isCaptured') && message.match(this.get('matches'));
@@ -117,14 +122,18 @@ export default Ember.Component.extend({
   /**
    * When items are added to our matching errors array, mark them as captured
    * so we can know which ones *aren't* captured and should be displayed in
-   * catch-all handlers
+   * catch-all handlers. Catch-all handlers themselves don't mark as captured.
    */
   trackCaptures: arrayMemberObserver('matchingErrors', {
     added(error) {
-      set(error, 'isCaptured', true);
+      if (this.get('matches')) {
+        set(error, 'isCaptured', true);
+      }
     },
     removed(error) {
-      set(error, 'isCaptured', false);
+      if (this.get('matches')) {
+        set(error, 'isCaptured', false);
+      }
     }
   }),
 
@@ -150,7 +159,7 @@ export default Ember.Component.extend({
   // potentially whether the user has interacted with the field's associated
   // input
 
-  isFirstError: computed('error', 'errors', function() {
+  isFirstError: computed('error', 'fieldErrors', function() {
     return this.get('errors.firstObject') === this.get('error');
   }),
 
