@@ -44,7 +44,7 @@ export default Ember.Component.extend({
   /**
    * Tracks whether this form has ever been submitted (used when validation mode
    * is 'submit').
-   * 
+   *
    * @type {Boolean}
    */
   submitted: false,
@@ -75,6 +75,16 @@ export default Ember.Component.extend({
 
   // Track which fields are 'live' to know when to display validations that are
   // triggered on 'live'. Live = user started editing.
-  liveFields: computed(function() { return Ember.A(); })
+  liveFields: computed(function() { return Ember.A(); }),
+
+  // Track which error handlers exist for this form. Used to determine if there
+  // are any active errors.
+  errorHandlers: computed(function() { return Ember.A(); }),
+
+  // This is used primarily by the submit button - it will only disable if there
+  // are visible errors.
+  hasActiveErrors: computed('errorHandlers.@each.isActive', function() {
+    return this.get('errorHandlers').find(handler => handler.get('isActive'));
+  })
 
 });

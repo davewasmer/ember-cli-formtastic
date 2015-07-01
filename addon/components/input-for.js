@@ -79,7 +79,7 @@ export default Ember.TextField.extend({
    * @type {Boolean}
    */
   hasErrors: computed('errors.[]', function() {
-    let errors = this.get('form.errors');
+    let errors = this.get('errors');
     return errors && errors.errorsFor(this.get('field')).length > 0;
   }),
 
@@ -107,20 +107,23 @@ export default Ember.TextField.extend({
    * @type {Boolean}
    */
   isErrored: computed(
-    'hasErrors',
     'form.validate',
     'form.submitted',
+    'hasErrors',
     'isTouched',
     'isLive',
     function() {
       let mode = this.get('form.validate');
+      let submitted = this.get('form.submitted');
 
-      return this.get('hasErrors') && (
+      let shouldDisplay = submitted || (
         (mode === 'touch' && this.get('isTouched')) ||
         (mode === 'live' && this.get('isLive')) ||
         (mode === 'submit' && this.get('form.submitted')) ||
         (mode === 'continuous')
       );
+
+      return this.get('hasErrors') && shouldDisplay;
   }),
 
   /**

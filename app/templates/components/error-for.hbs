@@ -1,9 +1,11 @@
 {{#if isActive}}
   <div class='error-for {{field}}'>
-    {{#if template}}
-      {{yield error}}
-    {{else}}
-      Error: {{errorMessage}}
-    {{/if}}
+    <div class='error-message'>
+      {{#if template}}
+        {{yield error}}
+      {{else}}
+        Error: {{errorMessage}}
+      {{/if}}
+    </div>
   </div>
 {{/if}}

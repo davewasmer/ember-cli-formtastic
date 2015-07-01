@@ -64,6 +64,17 @@ export default Ember.Component.extend({
     }
   }),
 
+
+  /**
+   * Overridable alias for the model which has the error property. Note that the
+   * default alias is the form, not the form's model directly. This allows you
+   * to pass an errors array into the parent form, and by default, child
+   * {{error-for}} components will use that array.
+   *
+   * @type {Form|DS.Model|Object}
+   */
+  model: computed.reads('form'),
+
   /**
    * This option is mutually exclusive with the `field` option. When `field` is
    * used, the errors will be looked up via the injected form's model.errors
@@ -72,7 +83,7 @@ export default Ember.Component.extend({
    *
    * @type {Error[]}
    */
-  errors: computed.reads('form.errors'),
+  errors: computed.reads('model.errors'),
 
   /**
    * Filtered list of all errors that apply to this field
@@ -160,7 +171,7 @@ export default Ember.Component.extend({
   // input
 
   isFirstError: computed('error', 'fieldErrors', function() {
-    return this.get('errors.firstObject') === this.get('error');
+    return this.get('fieldErrors.firstObject') === this.get('error');
   }),
 
   /**
@@ -193,13 +204,16 @@ export default Ember.Component.extend({
     'fieldIsTouched',
     function() {
       let mode = this.get('form.validate');
+      let submitted = this.get('form.submitted');
 
-      return this.get('error') && this.get('isFirstError') && (
-        (mode === 'touch' && this.get('fieldIsTouched')) ||
-        (mode === 'live' && this.get('fieldIsLive')) ||
-        (mode === 'submit' && this.get('form.submitted')) ||
-        (mode === 'continuous')
+      let hasError = this.get('error') && this.get('isFirstError');
+      let shouldDisplay = submitted || (                      // Once the form is submitted, always display any errors. If not submitted yet ...
+        (mode === 'touch' && this.get('fieldIsTouched')) ||   // Check if the field was touched yet
+        (mode === 'live' && this.get('fieldIsLive')) ||       // Check if the field is live yet
+        (mode === 'continuous')                               // Check if we are doing continuous validation
       );
+
+      return hasError && shouldDisplay;
     }
   ),
 

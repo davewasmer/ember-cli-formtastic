@@ -4,6 +4,11 @@ var computed = Ember.computed;
 
 export default Ember.Component.extend({
 
+  tagName: 'button',
+  classNames: 'submit-btn',
+  classNameBindings: [ 'disabled' ],
+  attributeBindings: [ 'disabled' ],
+
   // Options
 
   /**
@@ -16,19 +21,17 @@ export default Ember.Component.extend({
 
   /**
    * If you supply the form argument, the button will automatically be disabled
-   * during saves if your form is a DS.Model. If you don't supply the form, then
-   * you can directly bind the disabled state of the button to your own flag.
+   * during saves or when the form is visibly invalid. If you don't supply the
+   * form, then you can directly bind the disabled state of the button to your
+   * own flag.
    *
    * @type {Boolean}
    */
-  disabled: computed.or('form.model.isSaving', 'form.model.isInvalid'),
-
-
-  classNameBindings: [ 'disabled' ],
-  attributeBindings: [ 'disabled' ],
-
-  classNames: 'submit-btn',
-
-  tagName: 'button'
+  disabled: computed('form.hasActiveErrors', 'form.model.isSaving', function() {
+    return Boolean(
+      this.get('form.hasActiveErrors') ||
+      this.get('form.model.isSaving')
+    );
+  })
 
 });
