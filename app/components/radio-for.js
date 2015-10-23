@@ -1,0 +1,1 @@
+export { default } from 'ember-cli-formtastic/components/radio-for';

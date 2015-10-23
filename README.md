@@ -1,25 +1,16 @@
-# Ember-cli-formtastic
+# ember-cli-formtastic
 
-This README outlines the details of collaborating on this Ember addon.
+```hbs
+{{#form-for blogPost as |form|}}
+  {{error-for form.title}}
+  {{input-for form.title}}
+{{/form-for}}
+```
 
-## Installation
 
-* `git clone` this repository
-* `npm install`
-* `bower install`
 
-## Running
+LEFT OFF
+got errors displaying, but multiple are displaying for a single attribute.
 
-* `ember server`
-* Visit your app at http://localhost:4200.
-
-## Running Tests
-
-* `ember test`
-* `ember test --server`
-
-## Building
-
-* `ember build`
-
-For more information on using ember-cli, visit [http://www.ember-cli.com/](http://www.ember-cli.com/).
+I need to unify the facade for forms and fields. That way, the error handler can
+point to the errorTarget's error list, and have it either be a field's error list or the form's orphaned errors list. That way, the error handler can compare it's error against the first on the attribute list.
