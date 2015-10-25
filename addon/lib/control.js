@@ -5,7 +5,7 @@ import kebabCase from 'lodash/string/kebabCase';
 const { get, set, computed } = Ember;
 const { notEmpty, or, and } = computed;
 
-export default Ember.Component.extend({
+export default Ember.Mixin.create({
 
   positionalParams: [ 'field' ],
 
@@ -13,9 +13,10 @@ export default Ember.Component.extend({
 
   tagName: 'input',
   classNameBindings: [ 'dasherizedAttributeName', 'hasActiveError:error' ],
-  attributeBindings: [ 'placeholder', 'type' ],
+  attributeBindings: [ 'placeholder', 'type', 'value' ],
 
   type: 'text',
+  value: computed.alias('field.value'),
 
   dasherizedAttributeName: computed('field.attribute', function() {
     return kebabCase(get(this, 'field.attribute') || '');

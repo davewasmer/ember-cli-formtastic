@@ -8,6 +8,7 @@ export default Ember.Object.extend({
   fieldset: null,
   errors: null,
   attribute: null,
+  value: null,
 
   form: reads('fieldset.form'),
 

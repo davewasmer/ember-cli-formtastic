@@ -3,7 +3,7 @@ import Fieldset from '../lib/fieldset';
 import FormError from '../lib/error';
 import isArray from 'lodash/lang/isArray';
 
-const { get, set, computed, RSVP } = Ember;
+const { get, set, computed, RSVP, on } = Ember;
 const { union, reads } = computed;
 
 // We use this as the psuedo attribute name for form level errors to avoid
@@ -11,6 +11,10 @@ const { union, reads } = computed;
 const FORM_ATTRIBUTE = Ember.guidFor({});
 
 export default Ember.Component.extend({
+
+  notifyUpdate: on('willUpdate', function() {
+    console.log('form-for is re-rendering');
+  }),
 
   /////////////
   // Options //
@@ -119,12 +123,13 @@ export default Ember.Component.extend({
     [ 'serverErrors', 'clientErrors', 'actionErrors' ].forEach((errorSourceName) => {
       allErrors.pushObjects(get(this, errorSourceName) || []);
     });
-    return allErrors.uniq().map((error) => {
-      return FormError.create({
-        attribute: get(error, 'attribute'),
-        message: get(error, 'message')
-      });
-    });
+    return allErrors;
+    // return allErrors.uniq().map((error) => {
+    //   return FormError.create({
+    //     attribute: get(error, 'attribute'),
+    //     message: get(error, 'message')
+    //   });
+    // });
   }),
 
   /**
@@ -136,6 +141,7 @@ export default Ember.Component.extend({
    * @private
    */
   errorsByAttribute: computed('allErrors.[]', function() {
+    console.log('computing errors by attribute');
     return get(this, 'allErrors').reduce((errorsByAttribute, error) => {
       let attribute = get(error, 'attribute') || FORM_ATTRIBUTE;
       let message = get(error, 'message');
@@ -162,6 +168,7 @@ export default Ember.Component.extend({
    * @private
    */
   errorsByHandler: computed('allErrors.[]', 'errorHandlers.[]', function() {
+    console.log('computing errors by handler');
     let handlers = get(this, 'errorHandlers');
     let allErrors = get(this, 'allErrors');
 
@@ -331,9 +338,9 @@ function findCapturingHandler(error, handlers) {
     }
   });
 
-  set(error, 'isCaptured', true);
-  set(error, 'capturingHandler', capturingHandler);
-  set(error, 'capturePriority', capturePriority);
+  // set(error, 'isCaptured', true);
+  // set(error, 'capturingHandler', capturingHandler);
+  // set(error, 'capturePriority', capturePriority);
   return capturingHandler;
 }
 

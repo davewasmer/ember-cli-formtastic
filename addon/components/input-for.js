@@ -1,12 +1,16 @@
 import Ember from 'ember';
-import ControlComponent from './control';
+import ControlMixin from '../lib/control';
 
-const { get, computed } = Ember;
+const { get, computed, on } = Ember;
 
-export default ControlComponent.extend({
+export default Ember.TextField.extend(ControlMixin, {
+
+  notifyUpdate: on('willUpdate', function() {
+    console.log('input-for is re-rendering');
+  }),
 
   classNames: 'input-for',
-  
+
   type: computed('field.attribute', function() {
     return get(this, 'field.attribute') === 'password' ? 'password' : 'text';
   })

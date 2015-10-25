@@ -5,6 +5,10 @@ const { get, computed, on } = Ember;
 
 export default Ember.Component.extend({
 
+  notifyUpdate: on('willUpdate', function() {
+    console.log('error-for is re-rendering');
+  }),
+
   positionalParams: [ 'errorTarget' ],
 
   errorTarget: null,
