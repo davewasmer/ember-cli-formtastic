@@ -1,16 +1,19 @@
 import Ember from 'ember';
 
 const { get, computed } = Ember;
-const { reads, notEmpty } = computed;
+const { reads, notEmpty, union } = computed;
 
 export default Ember.Object.extend({
 
   fieldset: null,
-  errors: null,
   attribute: null,
   value: null,
+  serverErrors: null,
+  clientErrors: null,
 
   form: reads('fieldset.form'),
+
+  errors: union('serverErrors', 'clientErrors', 'actionErrors'),
 
   isTouched: false,
   isLive: false,

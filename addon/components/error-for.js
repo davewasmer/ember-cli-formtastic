@@ -1,15 +1,8 @@
 import Ember from 'ember';
-import Field from '../lib/field';
 
-const { get, computed, on } = Ember;
+const { get, computed } = Ember;
 
-export default Ember.Component.extend({
-
-  notifyUpdate: on('willUpdate', function() {
-    console.log('error-for is re-rendering');
-  }),
-
-  positionalParams: [ 'errorTarget' ],
+const ErrorForComponent = Ember.Component.extend({
 
   errorTarget: null,
   attribute: computed.alias('errorTarget.attribute'),
@@ -23,23 +16,17 @@ export default Ember.Component.extend({
     }
   }),
 
-  registerHandler: on('init', function() {
-    if (get(this, 'form')) {
-      get(this, 'form.errorHandlers').pushObject(this);
-    }
-  }),
-
-  unregisterHandler: on('willDestroy', function() {
-    if (get(this, 'form')) {
-      get(this, 'form.errorHandlers').removeObject(this);
-    }
-  }),
-
   form: computed.alias('errorTarget.form'),
   attributeErrors: computed.alias('errorTarget.errors'),
 
-  errors: computed('form.errorsByHandler', function() {
-    return get(this, 'form.errorsByHandler').get(this);
+  errors: computed('attributeErrors.[]', function() {
+    if (get(this, 'matchesPattern')) {
+      return get(this, 'attributeErrors').filter((error) => {
+        return get(error, 'message').match(get(this, 'matchesPattern'));
+      });
+    } else {
+      return get(this, 'attributeErrors');
+    }
   }),
 
   error: computed.alias('errors.firstObject'),
@@ -50,6 +37,12 @@ export default Ember.Component.extend({
 
   fieldShouldShowErrors: computed.alias('errorTarget.shouldShowErrors'),
 
-  isActive: computed.and('isFirstErrorForAttribute', 'fieldShouldShowErrors')
+  isActive: computed.and('error', 'isFirstErrorForAttribute', 'fieldShouldShowErrors')
 
 });
+
+ErrorForComponent.reopenClass({
+  positionalParams: [ 'errorTarget' ]
+});
+
+export default ErrorForComponent;

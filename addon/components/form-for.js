@@ -1,31 +1,15 @@
 import Ember from 'ember';
 import Fieldset from '../lib/fieldset';
-import FormError from '../lib/error';
 import isArray from 'lodash/lang/isArray';
 
-const { get, set, computed, RSVP, on } = Ember;
-const { union, reads } = computed;
+const { get, set, computed, RSVP } = Ember;
+const { reads } = computed;
 
-// We use this as the psuedo attribute name for form level errors to avoid
-// collisions with actual attribute names.
-const FORM_ATTRIBUTE = Ember.guidFor({});
-
-export default Ember.Component.extend({
-
-  notifyUpdate: on('willUpdate', function() {
-    console.log('form-for is re-rendering');
-  }),
+const FormForComponent = Ember.Component.extend({
 
   /////////////
   // Options //
   /////////////
-
-  /**
-   * Accepts the model as the first positional arg
-   *
-   * @type {Array}
-   */
-  positionalParams: [ 'model', 'action' ],
 
   /**
    * An action closure to invoke when the form is submitted and valid
@@ -60,7 +44,11 @@ export default Ember.Component.extend({
    */
   validate: computed('model', function() {
     let model = get(this, 'model');
-    return model.validate.bind(model);
+    return function validate() {
+      return model.validate().then(({ model, validations }) => {
+        return get(validations, 'isValid');
+      });
+    };
   }),
 
   /**
@@ -86,7 +74,7 @@ export default Ember.Component.extend({
    *
    * @type {ValidationError[]}
    */
-  clientErrors: reads('model.validations.errors'),
+  clientErrors: reads('model.validations.attrs'),
 
   /**
    * Has the form been submitted at any point so far?
@@ -110,87 +98,6 @@ export default Ember.Component.extend({
 
   tagName: 'form',
   classNames: 'form-for',
-
-  /**
-   * The list of all errors for this form. Defaults to the union of the model
-   * errors, the ember-cp-validations errors, and any action errors.
-   *
-   * @type {Array}
-   * @private
-   */
-  allErrors: computed('serverErrors.[]', 'clientErrors.[]', 'actionErrors.[]', function() {
-    let allErrors = Ember.A();
-    [ 'serverErrors', 'clientErrors', 'actionErrors' ].forEach((errorSourceName) => {
-      allErrors.pushObjects(get(this, errorSourceName) || []);
-    });
-    return allErrors;
-    // return allErrors.uniq().map((error) => {
-    //   return FormError.create({
-    //     attribute: get(error, 'attribute'),
-    //     message: get(error, 'message')
-    //   });
-    // });
-  }),
-
-  /**
-   * Sort the errors into attribute specific groups. Create clones of the error
-   * objects so we can attach state tracking information to them (specifically,
-   * whether or not the error has been captured, and by whom).
-   *
-   * @type {Object}
-   * @private
-   */
-  errorsByAttribute: computed('allErrors.[]', function() {
-    console.log('computing errors by attribute');
-    return get(this, 'allErrors').reduce((errorsByAttribute, error) => {
-      let attribute = get(error, 'attribute') || FORM_ATTRIBUTE;
-      let message = get(error, 'message');
-      if (!errorsByAttribute[attribute]) {
-        errorsByAttribute[attribute] = Ember.A();
-      }
-      errorsByAttribute[attribute].pushObject(error);
-      return errorsByAttribute;
-    }, {});
-  }),
-
-  /**
-   * An array of error-for components that should capture any orphaned errors.
-   *
-   * @type {ErrorForComponent[]}
-   * @private
-   */
-  errorHandlers: computed(function() { return Ember.A(); }),
-
-  /**
-   * A Map of error handlers and their captured errors.
-   *
-   * @type {Map}
-   * @private
-   */
-  errorsByHandler: computed('allErrors.[]', 'errorHandlers.[]', function() {
-    console.log('computing errors by handler');
-    let handlers = get(this, 'errorHandlers');
-    let allErrors = get(this, 'allErrors');
-
-    let errorsByHandler = handlers.reduce((result, handler) => {
-      result.set(handler, Ember.A());
-      return result;
-    }, new Map());
-    allErrors.forEach((error) => {
-      let capturingHandler = findCapturingHandler(error, handlers);
-      if (capturingHandler) {
-        errorsByHandler.get(capturingHandler).pushObject(error);
-      }
-    });
-
-    return errorsByHandler;
-  }),
-
-  // Mock the Field interface so error-for components don't need to special-case
-  // being handed form errors vs field errors.
-  errors: computed.alias(`errorsByAttribute.${ FORM_ATTRIBUTE }`),
-  attribute: FORM_ATTRIBUTE,
-  form: computed(function() { return this; }),
 
   /**
    * Create a Fieldset object to yield to the template. The Fieldset object is
@@ -276,106 +183,13 @@ export default Ember.Component.extend({
 
 });
 
+FormForComponent.reopenClass({
+  /**
+   * Accepts the model as the first positional arg
+   *
+   * @type {Array}
+   */
+  positionalParams: [ 'model', 'action' ],
+});
 
-function findCapturingHandler(error, handlers) {
-  let errorAttribute = get(error, 'attribute');
-  let errorMessage = get(error, 'message');
-  let capturePriority = 0;
-  let capturingHandler;
-
-  handlers.forEach((handler) => {
-    let handlerAttribute = get(handler, 'attribute');
-    let handlerPattern = get(handler, 'matchesPattern');
-
-    // Field errors
-    if (errorAttribute) {
-
-      // {{error-for form}} - generic catchall handler
-      if (!handlerAttribute && !handlerPattern) {
-        if (capturePriority < 1) {
-          capturingHandler = handler;
-          capturePriority = 1;
-        }
-
-      } else if (handlerAttribute === errorAttribute) {
-        // {{error-for fields.email}} - attribute catchall
-        if (!handlerPattern) {
-          if (capturePriority < 2) {
-            capturingHandler = handler;
-            capturePriority = 2;
-          }
-        // {{error-for fields.email matches='blank'}} - attribute & error specific
-        } else if (errorMessage.match(handlerPattern)) {
-          if (capturePriority < 3) {
-            capturingHandler = handler;
-            capturePriority = 3;
-          }
-        }
-      }
-
-    // Form errors
-    } else {
-
-      // Skip field specific handlers
-      if (handlerAttribute) {
-        return;
-      }
-
-      // {{error-for form}} - generic catchall
-      if (!handlerPattern) {
-        if (capturePriority < 2) {
-          capturingHandler = handler;
-          capturePriority = 2;
-        }
-
-      // {{error-for form matches='conflict'}} - form-wide & error specific
-      } else if (errorMessage.match(handlerPattern)) {
-        if (capturePriority < 3) {
-          capturingHandler = handler;
-          capturePriority = 3;
-        }
-      }
-    }
-  });
-
-  // set(error, 'isCaptured', true);
-  // set(error, 'capturingHandler', capturingHandler);
-  // set(error, 'capturePriority', capturePriority);
-  return capturingHandler;
-}
-
-
-
-
-// /**
-//  * An array of all the attribute names that have been captured by an
-//  * {{error-for}} component
-//  *
-//  * @type {String[]}
-//  */
-// capturedAttributes: computed('errorHandlers.[]', function() {
-//   return get(this, 'errorHandlers').map((errorHandler) => {
-//     return get(errorHandler, 'errorTarget');
-//   }).filter((errorTarget) => {
-//     return errorTarget !== this;
-//   }).map((field) => {
-//     return get(field, 'attribute');
-//   });
-// }),
-
-// /**
-//  * An array of all errors that are either:
-//  *
-//  *   a) form-level errors (i.e. they don't relate to a specific attribute), or
-//  *   b) field-level errors whose attribute was not captured by any
-//  *      {{error-for}} component
-//  *
-//  * @type {FormError[]}
-//  */
-// formErrors: computed('errors.[]', 'capturedAttributes.[]', function() {
-//   let capturedAttributes = get(this, 'capturedAttributes');
-//   return get(this, 'errors').filter((error) => {
-//     let isCaptured = capturedAttributes.indexOf(get(error, 'attribute')) > -1;
-//     return isCaptured || get(error, 'isFormError');
-//   });
-// }),
+export default FormForComponent;

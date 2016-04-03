@@ -3,7 +3,7 @@ import ControlMixin from '../lib/control';
 
 const { get, computed, on } = Ember;
 
-export default Ember.TextField.extend(ControlMixin, {
+const InputForComponent = Ember.TextField.extend(ControlMixin, {
 
   notifyUpdate: on('willUpdate', function() {
     console.log('input-for is re-rendering');
@@ -16,3 +16,9 @@ export default Ember.TextField.extend(ControlMixin, {
   })
 
 });
+
+InputForComponent.reopenClass({
+  positionalParams: [ 'field' ]
+});
+
+export default InputForComponent;

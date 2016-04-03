@@ -7,8 +7,6 @@ const { notEmpty, or, and } = computed;
 
 export default Ember.Mixin.create({
 
-  positionalParams: [ 'field' ],
-
   field: null,
 
   tagName: 'input',

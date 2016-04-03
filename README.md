@@ -10,7 +10,12 @@
 
 
 LEFT OFF
-got errors displaying, but multiple are displaying for a single attribute.
+Still too slow
+What if I directly bind the Fields to their error source, i.e. form.modelErrors.attributes.[fieldname] & same for cp-validations. Action errors would be similar, but the grouping would be managed in the submit handler.
 
-I need to unify the facade for forms and fields. That way, the error handler can
-point to the errorTarget's error list, and have it either be a field's error list or the form's orphaned errors list. That way, the error handler can compare it's error against the first on the attribute list.
+Test that first for perf. Assuming it's good, then have catch-all handlers pull
+the union'd list of all errors, and have forms create a unioned list of all the
+fields errors. Then diff, and you've got your unhandled errors.
+
+Basically, its traditional binding all the way down, but then fields u-turn and
+send state up, which is collected and analyzed once.

@@ -1,13 +1,18 @@
 import Ember from 'ember';
-import ControlComponent from './control';
+import ControlMixin from '../lib/control';
 
 const { alias } = Ember.computed;
 
-export default ControlComponent.extend({
+const CheckboxForComponent = Ember.Component.extend(ControlMixin, {
 
   classNames: 'checkbox-for',
-  attributeBindings: [ 'checked' ],
   type: 'checkbox',
   checked: alias('value')
 
 });
+
+CheckboxForComponent.reopenClass({
+  positionalParams: [ 'field' ]
+});
+
+export default CheckboxForComponent;
